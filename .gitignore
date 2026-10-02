@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+checkpoint/
+estado.json
+data/eventos/*.json
+python3

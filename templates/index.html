@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Monitoreo de Tienda</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        header {
+            background: #1f2937;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        .contenedor {
+            width: 90%;
+            max-width: 1200px;
+            margin: 30px auto;
+        }
+
+        .resumen {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .tarjeta {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tarjeta h3 {
+            margin-top: 0;
+        }
+
+        .numero {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #1f2937;
+            color: white;
+        }
+
+        .normal {
+            color: green;
+            font-weight: bold;
+        }
+
+        .bajo {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .critico,
+        .agotado {
+            color: red;
+            font-weight: bold;
+        }
+
+        .alerta {
+            background: #ffe5e5;
+            color: red;
+            font-weight: bold;
+        }
+
+        .precio {
+            font-weight: bold;
+        }
+
+        .actualizacion {
+            margin-top: 20px;
+            text-align: right;
+            color: #555;
+        }
+
+        @media (max-width: 800px) {
+
+            .resumen {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 13px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<header>
+
+    <h1>Monitoreo de Inventario</h1>
+
+    <p>
+        Productor → Consumidor → Spark → DataFrame → Predicción
+    </p>
+
+</header>
+
+
+<div class="contenedor">
+
+    <div class="resumen">
+
+        <div class="tarjeta">
+
+            <h3>Productos</h3>
+
+            <div
+                class="numero"
+                id="totalProductos"
+            >
+                0
+            </div>
+
+        </div>
+
+
+        <div class="tarjeta">
+
+            <h3>Alertas</h3>
+
+            <div
+                class="numero"
+                id="totalAlertas"
+            >
+                0
+            </div>
+
+        </div>
+
+
+        <div class="tarjeta">
+
+            <h3>Consumo total</h3>
+
+            <div
+                class="numero"
+                id="consumoTotal"
+            >
+                0
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="tarjeta">
+
+        <h2>Estado de los productos</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Producto</th>
+
+                    <th>Inventario</th>
+
+                    <th>Consumo total</th>
+
+                    <th>Consumo reciente</th>
+
+                    <th>Predicción</th>
+
+                    <th>Precio</th>
+
+                    <th>Estado</th>
+
+                    <th>Alerta</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="tablaProductos">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="actualizacion">
+
+        Última actualización:
+
+        <span id="ultimaActualizacion">
+            esperando...
+        </span>
+
+    </div>
+
+</div>
+
+
+<script>
+
+async function actualizarDatos() {
+
+    try {
+
+        const respuesta =
+            await fetch("/api/estado");
+
+        const datos =
+            await respuesta.json();
+
+        if (datos.error) {
+
+            console.error(datos.error);
+
+            return;
+        }
+
+
+        const productos =
+            datos.productos;
+
+
+        const nombres =
+            Object.keys(productos);
+
+
+        document.getElementById(
+            "totalProductos"
+        ).textContent =
+            nombres.length;
+
+
+        let alertas = 0;
+
+        let consumoTotal = 0;
+
+
+        const tabla =
+            document.getElementById(
+                "tablaProductos"
+            );
+
+
+        tabla.innerHTML = "";
+
+
+        nombres.forEach(nombre => {
+
+            const producto =
+                productos[nombre];
+
+
+            if (producto.alerta) {
+
+                alertas++;
+
+            }
+
+
+            consumoTotal +=
+                producto.consumo_total;
+
+
+            const fila =
+                document.createElement("tr");
+
+
+            let claseEstado =
+                producto.estado
+                    .toLowerCase();
+
+
+            fila.innerHTML = `
+
+                <td>
+                    ${nombre}
+                </td>
+
+                <td>
+                    ${producto.inventario}
+                </td>
+
+                <td>
+                    ${producto.consumo_total}
+                </td>
+
+                <td>
+                    ${producto.consumo_reciente}
+                </td>
+
+                <td>
+                    ${producto.prediccion}
+                </td>
+
+                <td class="precio">
+                    $${Number(producto.precio).toLocaleString("es-CO")}
+                </td>
+
+                <td class="${claseEstado}">
+                    ${producto.estado}
+                </td>
+
+                <td class="${producto.alerta ? "alerta" : ""}">
+                    ${producto.alerta ? "ALERTA" : "OK"}
+                </td>
+
+            `;
+
+
+            tabla.appendChild(fila);
+
+        });
+
+
+        document.getElementById(
+            "totalAlertas"
+        ).textContent = alertas;
+
+
+        document.getElementById(
+            "consumoTotal"
+        ).textContent = consumoTotal;
+
+
+        if (datos.ultima_actualizacion) {
+
+            document.getElementById(
+                "ultimaActualizacion"
+            ).textContent =
+                new Date(
+                    datos.ultima_actualizacion
+                ).toLocaleString();
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Error consultando servidor:",
+            error
+        );
+
+    }
+
+}
+
+
+// Actualización cada segundo
+
+setInterval(
+    actualizarDatos,
+    1000
+);
+
+
+// Primera carga
+
+actualizarDatos();
+
+</script>
+
+</body>
+
+</html>

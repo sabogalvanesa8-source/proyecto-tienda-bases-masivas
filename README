@@ -1,0 +1,1435 @@
+# SISTEMA DE PROCESAMIENTO DE EVENTOS EN TIEMPO REAL
+
+## Bases de Datos Masivas – UNIMINUTO
+
+Proyecto académico para simular el procesamiento de eventos de una tienda en tiempo real utilizando **Python, Spark Structured Streaming, DataFrames, Flask y HTML**.
+
+---
+
+# 1. Descripción del proyecto
+
+El proyecto simula el comportamiento de una tienda que recibe constantemente eventos relacionados con sus productos.
+
+Se generan principalmente dos tipos de eventos:
+
+* **CONSUMO:** representa la venta o consumo de una determinada cantidad de un producto.
+* **CAMBIO_PRECIO:** representa una modificación en el precio de un producto.
+
+Los eventos son generados automáticamente por un productor y posteriormente procesados por **Apache Spark Structured Streaming**.
+
+Spark procesa los eventos mediante micro-lotes y actualiza:
+
+* Inventario disponible.
+* Consumo total.
+* Consumo reciente.
+* Precio actual.
+* Estado del inventario.
+* Predicción del inventario.
+* Alertas relacionadas con niveles bajos de inventario.
+
+Finalmente, **Flask** proporciona una API para que el frontend HTML consulte el estado actual y lo muestre en tiempo real.
+
+---
+
+# 2. Arquitectura del sistema
+
+El flujo general del proyecto es:
+
+```text
+┌─────────────────────┐
+│     PRODUCTOR       │
+│    productor.py     │
+└──────────┬──────────┘
+           │
+           │ Genera eventos
+           ▼
+┌─────────────────────┐
+│    data/eventos/    │
+│     Archivos JSON   │
+└──────────┬──────────┘
+           │
+           │ Structured Streaming
+           ▼
+┌─────────────────────────────┐
+│           SPARK             │
+│     consumidor.py           │
+│                             │
+│  Spark Structured Streaming │
+│  DataFrame                  │
+│  Micro-lotes                │
+└──────────┬──────────────────┘
+           │
+           ├───────────────┐
+           │               │
+           ▼               ▼
+      CONSUMO         CAMBIO_PRECIO
+           │               │
+           └───────┬───────┘
+                   ▼
+          Actualización del
+             inventario
+                   │
+                   ▼
+             Predicción
+                   │
+                   ▼
+             estado.json
+                   │
+                   ▼
+          ┌────────────────┐
+          │     FLASK      │
+          │     app.py     │
+          └───────┬────────┘
+                  │
+                  │ API REST
+                  ▼
+          ┌────────────────┐
+          │      HTML      │
+          │   Dashboard    │
+          └────────────────┘
+```
+
+---
+
+# 3. Tecnologías utilizadas
+
+El proyecto utiliza:
+
+| Tecnología                 | Uso                                     |
+| -------------------------- | --------------------------------------- |
+| Python                     | Lenguaje principal                      |
+| Apache Spark               | Procesamiento de datos                  |
+| Spark Structured Streaming | Procesamiento de eventos en tiempo real |
+| PySpark                    | API de Spark para Python                |
+| DataFrame                  | Estructura para procesar los eventos    |
+| Flask                      | Servidor web y API REST                 |
+| HTML                       | Interfaz gráfica                        |
+| JSON                       | Formato de intercambio de eventos       |
+| WSL 2 + Ubuntu             | Entorno de ejecución                    |
+
+---
+
+# 4. Requisitos
+
+Para ejecutar el proyecto se necesita:
+
+* Windows 10/11.
+* WSL 2.
+* Ubuntu instalado en WSL.
+* Python 3.12 o compatible.
+* Java compatible con la versión de Spark utilizada.
+* Navegador web.
+* Conexión a Internet durante la instalación de dependencias.
+
+La versión utilizada durante el desarrollo fue:
+
+```text
+Python 3.12
+PySpark 4.2.0
+```
+
+---
+
+# 5. Estructura del proyecto
+
+La estructura recomendada es:
+
+```text
+proyecto_tienda/
+│
+├── productor.py
+├── consumidor.py
+├── app.py
+├── requirements.txt
+├── README.md
+│
+├── templates/
+│   └── index.html
+│
+├── static/
+│   └── ...
+│
+├── data/
+│   └── eventos/
+│
+└── checkpoint/
+```
+
+## Archivos principales
+
+### productor.py
+
+Genera automáticamente eventos de:
+
+```text
+CONSUMO
+CAMBIO_PRECIO
+```
+
+Los eventos se agrupan en lotes de 5 antes de ser enviados a Spark.
+
+---
+
+### consumidor.py
+
+Es el componente principal de procesamiento.
+
+Utiliza:
+
+```text
+Spark Structured Streaming
+```
+
+para leer los eventos y procesarlos mediante micro-lotes.
+
+Realiza operaciones sobre los DataFrames y actualiza el estado de los productos.
+
+---
+
+### app.py
+
+Implementa el servidor Flask.
+
+Proporciona principalmente:
+
+```text
+/
+```
+
+para mostrar el frontend.
+
+Y:
+
+```text
+/api/estado
+```
+
+para entregar el estado actual del sistema.
+
+---
+
+### index.html
+
+Es la interfaz gráfica del proyecto.
+
+Consulta periódicamente:
+
+```text
+/api/estado
+```
+
+y muestra la información actualizada.
+
+---
+
+### data/eventos/
+
+Contiene los archivos JSON generados por el productor.
+
+Esta carpeta debe comenzar vacía al entregar el proyecto.
+
+Los archivos se generan automáticamente al ejecutar:
+
+```bash
+python productor.py
+```
+
+---
+
+# 6. Instalación de WSL
+
+Si el computador ya tiene WSL y Ubuntu instalado, se puede saltar este paso.
+
+Desde PowerShell como administrador se puede comprobar:
+
+```powershell
+wsl --status
+```
+
+También:
+
+```powershell
+wsl -l -v
+```
+
+Debe aparecer Ubuntu utilizando:
+
+```text
+VERSION 2
+```
+
+Importante:
+
+Los comandos `wsl` se ejecutan desde **PowerShell o CMD de Windows**.
+
+Dentro de Ubuntu/WSL NO se debe ejecutar:
+
+```bash
+wsl
+```
+
+---
+
+# 7. Abrir Ubuntu
+
+Abrir la aplicación:
+
+```text
+Ubuntu
+```
+
+El proyecto puede estar ubicado dentro del disco C de Windows.
+
+Por ejemplo:
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+```
+
+Cada compañero debe cambiar `USUARIO` por su propio usuario de Windows.
+
+Para comprobar que estamos en la carpeta correcta:
+
+```bash
+ls
+```
+
+Deberían aparecer archivos como:
+
+```text
+productor.py
+consumidor.py
+app.py
+```
+
+---
+
+# 8. Crear el entorno virtual
+
+Dentro de la carpeta del proyecto:
+
+```bash
+python3 -m venv .venv
+```
+
+Activar el entorno:
+
+```bash
+source .venv/bin/activate
+```
+
+Si se activó correctamente, la terminal mostrará algo parecido a:
+
+```text
+(.venv) usuario@computador:...
+```
+
+---
+
+# 9. Instalar las dependencias
+
+Con el entorno virtual activo:
+
+```bash
+pip install -r requirements.txt
+```
+
+Si todavía no existe `requirements.txt`, se pueden instalar manualmente:
+
+```bash
+pip install pyspark==4.2.0
+```
+
+y:
+
+```bash
+pip install flask
+```
+
+Para comprobar PySpark:
+
+```bash
+python -c "import pyspark; print(pyspark.__version__)"
+```
+
+Debe mostrar:
+
+```text
+4.2.0
+```
+
+Para comprobar Flask:
+
+```bash
+python -c "import flask; print(flask.__version__)"
+```
+
+---
+
+# 10. Comprobar Java
+
+Spark necesita Java.
+
+Ejecutar:
+
+```bash
+java -version
+```
+
+Si Java está correctamente instalado aparecerá información de la versión.
+
+Si aparece:
+
+```text
+java: command not found
+```
+
+es necesario instalar/configurar Java antes de ejecutar Spark.
+
+---
+
+# 11. IMPORTANTE: preparar el proyecto antes de la primera ejecución
+
+La carpeta:
+
+```text
+data/eventos/
+```
+
+debe estar limpia.
+
+Eliminar archivos JSON anteriores:
+
+```bash
+rm -f data/eventos/*.json
+```
+
+También se recomienda eliminar el checkpoint anterior cuando se inicia una instalación limpia:
+
+```bash
+rm -rf checkpoint/consumidor
+```
+
+Si existe un estado anterior y se desea comenzar desde cero:
+
+```bash
+rm -f estado.json
+```
+
+Esto NO elimina el código.
+
+Solamente elimina:
+
+* Eventos generados anteriormente.
+* Checkpoint de Spark.
+* Estado anterior del inventario.
+
+---
+
+# 12. Ejecución del sistema
+
+El sistema utiliza tres procesos principales:
+
+```text
+1. Consumidor Spark
+2. Productor
+3. Flask
+```
+
+Se recomienda utilizar tres terminales de Ubuntu.
+
+---
+
+# 13. TERMINAL 1 – Ejecutar Spark
+
+Abrir Ubuntu y entrar al proyecto:
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+```
+
+Activar el entorno:
+
+```bash
+source .venv/bin/activate
+```
+
+Ejecutar:
+
+```bash
+python consumidor.py
+```
+
+Debe aparecer algo parecido a:
+
+```text
+==============================================
+          CONSUMIDOR SPARK ACTIVO
+==============================================
+Spark Streaming está esperando eventos...
+Procesamiento por micro-lotes: 5 segundos
+Eventos: CONSUMO / CAMBIO_PRECIO
+==============================================
+```
+
+Esta terminal debe permanecer abierta.
+
+---
+
+# 14. TERMINAL 2 – Ejecutar el productor
+
+Abrir otra terminal de Ubuntu.
+
+Entrar al proyecto:
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+```
+
+Activar el entorno:
+
+```bash
+source .venv/bin/activate
+```
+
+Ejecutar:
+
+```bash
+python productor.py
+```
+
+El productor comenzará a generar eventos.
+
+Ejemplo:
+
+```text
+[PRODUCTOR] Producto A | Consumo: 4 | Precio: $10,000
+```
+
+También pueden aparecer cambios de precio:
+
+```text
+[PRODUCTOR] Producto B | CAMBIO DE PRECIO | $8,000 → $8,692
+```
+
+Cada 5 eventos se genera un archivo:
+
+```text
+[PRODUCTOR] Lote enviado a Spark: 5 eventos
+```
+
+---
+
+# 15. TERMINAL 3 – Ejecutar Flask
+
+Abrir una tercera terminal.
+
+Entrar al proyecto:
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+```
+
+Activar:
+
+```bash
+source .venv/bin/activate
+```
+
+Ejecutar:
+
+```bash
+python app.py
+```
+
+Flask debería mostrar una dirección similar a:
+
+```text
+http://127.0.0.1:5000
+```
+
+No cerrar esta terminal.
+
+---
+
+# 16. Abrir el frontend
+
+Abrir Chrome, Edge o Firefox.
+
+Ingresar:
+
+```text
+http://127.0.0.1:5000
+```
+
+La aplicación debe mostrar el dashboard.
+
+El frontend consulta periódicamente:
+
+```text
+/api/estado
+```
+
+para obtener la información actualizada.
+
+---
+
+# 17. ¿Cómo comprobar que todo funciona?
+
+El flujo de prueba es:
+
+### Paso 1
+
+Ejecutar:
+
+```bash
+python consumidor.py
+```
+
+### Paso 2
+
+Ejecutar:
+
+```bash
+python productor.py
+```
+
+### Paso 3
+
+Ejecutar:
+
+```bash
+python app.py
+```
+
+### Paso 4
+
+Abrir:
+
+```text
+http://127.0.0.1:5000
+```
+
+### Paso 5
+
+Observar el productor.
+
+Se generan eventos.
+
+### Paso 6
+
+Observar Spark.
+
+Los eventos aparecen dentro del DataFrame.
+
+Ejemplo:
+
+```text
++----------+--------+------+---------------+-------------+
+|producto  |cantidad|precio|precio_anterior|tipo         |
++----------+--------+------+---------------+-------------+
+|Producto A|5       |10000 |NULL           |CONSUMO      |
+|Producto B|0       |8692  |8000           |CAMBIO_PRECIO|
++----------+--------+------+---------------+-------------+
+```
+
+### Paso 7
+
+Observar los resultados:
+
+```text
+[SPARK] Producto A | Consumo: 8 | Inventario: 32
+```
+
+### Paso 8
+
+Observar el navegador.
+
+Los valores del dashboard deben actualizarse.
+
+---
+
+# 18. Tipos de eventos
+
+## CONSUMO
+
+Representa una venta o consumo.
+
+Ejemplo:
+
+```json
+{
+    "producto": "Producto A",
+    "cantidad": 4,
+    "precio": 10000,
+    "precio_anterior": null,
+    "tipo": "CONSUMO",
+    "timestamp": "2026-10-01T16:00:00"
+}
+```
+
+Este evento disminuye el inventario.
+
+---
+
+## CAMBIO_PRECIO
+
+Representa una modificación del precio.
+
+Ejemplo:
+
+```json
+{
+    "producto": "Producto B",
+    "cantidad": 0,
+    "precio": 8692,
+    "precio_anterior": 8000,
+    "tipo": "CAMBIO_PRECIO",
+    "timestamp": "2026-10-01T16:00:02"
+}
+```
+
+Este evento actualiza el precio del producto.
+
+---
+
+# 19. Inventario
+
+El sistema inicia con valores definidos para cada producto.
+
+Ejemplo:
+
+```text
+Producto A → 100 unidades
+Producto B → 80 unidades
+Producto C → 60 unidades
+```
+
+Cuando se recibe un evento de consumo:
+
+```text
+inventario = inventario - cantidad_consumida
+```
+
+Por ejemplo:
+
+```text
+Inventario inicial = 100
+Consumo = 5
+
+Inventario actual = 95
+```
+
+---
+
+# 20. Consumo total
+
+El sistema también acumula el consumo histórico.
+
+Ejemplo:
+
+```text
+Consumo anterior = 1.400
+Nuevo consumo = 5
+
+Consumo total = 1.405
+```
+
+Esto permite observar el comportamiento acumulado de cada producto.
+
+---
+
+# 21. Predicción
+
+El proyecto utiliza una proyección sencilla basada en el consumo reciente.
+
+La finalidad es estimar cómo podría comportarse el inventario en los siguientes periodos.
+
+La predicción utilizada en el proyecto es una **proyección simple**, no un modelo avanzado de Machine Learning.
+
+Por esto, durante la exposición se recomienda decir:
+
+> "La predicción es una proyección basada en el comportamiento reciente del consumo."
+
+No se debe presentar como inteligencia artificial o Machine Learning avanzado.
+
+---
+
+# 22. Estados del inventario
+
+El sistema clasifica el inventario dependiendo de la cantidad disponible.
+
+Los estados utilizados son:
+
+```text
+NORMAL
+BAJO
+CRITICO
+AGOTADO
+```
+
+De esta manera se puede identificar cuándo un producto necesita atención.
+
+---
+
+# 23. Reabastecimiento
+
+Cuando el inventario alcanza niveles muy bajos, el sistema puede realizar una reposición utilizando la lógica definida en `consumidor.py`.
+
+Esto permite simular el comportamiento de una tienda que necesita reponer productos antes de quedarse completamente sin inventario.
+
+---
+
+# 24. Spark Structured Streaming
+
+La parte más importante del proyecto es:
+
+```text
+Spark Structured Streaming
+```
+
+Spark permite procesar continuamente los eventos que llegan.
+
+El flujo comienza con:
+
+```python
+readStream
+```
+
+que lee los archivos generados por el productor.
+
+Posteriormente Spark crea un:
+
+```text
+DataFrame
+```
+
+con los eventos.
+
+Los datos son procesados mediante:
+
+```text
+micro-lotes
+```
+
+En este proyecto el procesamiento está configurado aproximadamente cada:
+
+```text
+5 segundos
+```
+
+---
+
+# 25. ¿Qué es un DataFrame en este proyecto?
+
+El DataFrame representa los eventos recibidos por Spark.
+
+Tiene columnas como:
+
+```text
+producto
+cantidad
+precio
+precio_anterior
+tipo
+timestamp
+```
+
+Ejemplo:
+
+```text
+Producto A | 5 | 10000 | NULL | CONSUMO | timestamp
+```
+
+Spark utiliza este DataFrame para realizar las operaciones de procesamiento.
+
+---
+
+# 26. ¿Qué es el micro-lote?
+
+En lugar de procesar cada evento individual inmediatamente, Spark agrupa los eventos que han llegado durante un intervalo determinado.
+
+En este proyecto:
+
+```text
+Eventos
+   ↓
+Micro-lote
+   ↓
+DataFrame
+   ↓
+Procesamiento
+   ↓
+Actualización del estado
+```
+
+El intervalo configurado es de aproximadamente:
+
+```text
+5 segundos
+```
+
+---
+
+# 27. DAG de Spark
+
+Spark construye un **DAG (Directed Acyclic Graph)** para organizar las operaciones que debe ejecutar.
+
+En nuestro proyecto se puede representar conceptualmente como:
+
+```text
+Eventos JSON
+     │
+     ▼
+readStream
+     │
+     ▼
+DataFrame
+     │
+     ├───────────────┐
+     │               │
+     ▼               ▼
+ CONSUMO       CAMBIO_PRECIO
+     │               │
+     ▼               ▼
+Agrupación       Ordenamiento
+     │               │
+     └───────┬───────┘
+             ▼
+       foreachBatch()
+             │
+             ▼
+      Actualizar estado
+             │
+             ▼
+        estado.json
+```
+
+Cada etapa representa operaciones que Spark organiza para ejecutar el procesamiento.
+
+---
+
+# 28. ¿Por qué se utiliza un DAG?
+
+El DAG permite que Spark organice las operaciones de procesamiento y determine cómo ejecutarlas.
+
+Esto forma parte del modelo de procesamiento distribuido de Spark.
+
+En la exposición se puede explicar:
+
+> "El DAG representa las operaciones que Spark debe ejecutar sobre los datos y permite organizar el flujo de procesamiento."
+
+---
+
+# 29. Flask
+
+Flask funciona como servidor web y API.
+
+El endpoint principal para consultar el estado es:
+
+```text
+/api/estado
+```
+
+El frontend realiza solicitudes periódicas a este endpoint.
+
+Por ejemplo:
+
+```text
+HTML
+  ↓
+GET /api/estado
+  ↓
+Flask
+  ↓
+estado.json
+  ↓
+JSON
+  ↓
+HTML
+```
+
+---
+
+# 30. Actualización del frontend
+
+El frontend consulta periódicamente:
+
+```text
+/api/estado
+```
+
+Por eso los valores pueden cambiar mientras el productor continúa generando eventos.
+
+La evidencia en Flask se puede observar en la terminal:
+
+```text
+GET /api/estado HTTP/1.1" 200
+```
+
+El código HTTP:
+
+```text
+200
+```
+
+indica que la solicitud fue atendida correctamente.
+
+---
+
+# 31. Demostración para el profesor
+
+Se recomienda realizar la demostración en este orden.
+
+## 1. Presentar el problema
+
+Explicar:
+
+> "Queremos simular una tienda donde el inventario y los precios cambian constantemente y necesitamos procesar esos eventos en tiempo real."
+
+---
+
+## 2. Mostrar el productor
+
+Ejecutar:
+
+```bash
+python productor.py
+```
+
+Mostrar:
+
+```text
+Producto A | Consumo: 4
+Producto B | CAMBIO DE PRECIO
+```
+
+Explicar:
+
+> "Este componente genera los eventos que simulan las operaciones de la tienda."
+
+---
+
+## 3. Mostrar Spark
+
+Ir a la terminal de:
+
+```bash
+python consumidor.py
+```
+
+Mostrar:
+
+```text
+MICROLOTE SPARK
+```
+
+y el DataFrame.
+
+Explicar:
+
+> "Spark Structured Streaming recibe los eventos y los procesa mediante micro-lotes."
+
+---
+
+## 4. Mostrar inventario
+
+Mostrar:
+
+```text
+[SPARK] Producto A | Consumo: 8 | Inventario: 32
+```
+
+Explicar:
+
+> "Cada consumo modifica el inventario disponible."
+
+---
+
+## 5. Mostrar predicción
+
+Mostrar:
+
+```text
+Predicción: 8
+```
+
+Explicar:
+
+> "El sistema realiza una proyección basada en el consumo reciente."
+
+---
+
+## 6. Mostrar cambio de precio
+
+Mostrar:
+
+```text
+CAMBIO DE PRECIO
+$10,600 → $10,880
+```
+
+Explicar:
+
+> "Los cambios de precio también son procesados como eventos."
+
+---
+
+## 7. Mostrar Flask
+
+Abrir:
+
+```text
+http://127.0.0.1:5000
+```
+
+Explicar:
+
+> "Flask proporciona una API que permite al frontend consultar el estado procesado."
+
+---
+
+## 8. Mostrar el dashboard
+
+Finalmente mostrar cómo los datos cambian mientras el productor continúa generando eventos.
+
+---
+
+# 32. Explicación corta del proyecto
+
+Si el profesor pregunta:
+
+### "¿Cómo funciona su proyecto?"
+
+Responder:
+
+> "Nuestro proyecto simula una tienda en tiempo real. Un productor genera eventos de consumo y cambios de precio. Los eventos se almacenan en archivos JSON y son procesados por Spark Structured Streaming. Spark convierte los eventos en DataFrames y los procesa mediante micro-lotes. Con estos datos actualizamos el inventario, el consumo total, los precios y una proyección del inventario. Finalmente, Flask expone el estado mediante una API REST y el frontend HTML consulta esa API para mostrar la información actualizada."
+
+---
+
+# 33. Preguntas que puede hacer el profesor
+
+## ¿Por qué utilizar Spark?
+
+Porque permite procesar grandes cantidades de datos y trabajar con procesamiento de datos en streaming.
+
+---
+
+## ¿Qué es Structured Streaming?
+
+Es el componente de Spark utilizado para procesar datos que llegan continuamente.
+
+---
+
+## ¿Qué es un DataFrame?
+
+Es una estructura tabular de datos utilizada por Spark para realizar operaciones y transformaciones.
+
+---
+
+## ¿Qué es un micro-lote?
+
+Es un conjunto de eventos procesados durante un intervalo determinado.
+
+---
+
+## ¿Qué es el DAG?
+
+Es un grafo dirigido acíclico que representa y organiza las operaciones que Spark debe ejecutar.
+
+---
+
+## ¿Por qué utilizar JSON?
+
+Porque es un formato sencillo para representar y transportar los eventos generados por el productor.
+
+---
+
+## ¿Qué hace Flask?
+
+Proporciona el servidor web y la API que permite al frontend consultar el estado procesado.
+
+---
+
+## ¿Cómo se actualiza el HTML?
+
+El frontend realiza solicitudes periódicas al endpoint:
+
+```text
+/api/estado
+```
+
+---
+
+## ¿Qué pasa cuando disminuye el inventario?
+
+Spark actualiza el inventario y determina el estado correspondiente.
+
+Si alcanza niveles críticos, el sistema puede generar una alerta y ejecutar la lógica de reposición definida en el proyecto.
+
+---
+
+# 34. Problemas comunes
+
+## Error: `No module named 'pyspark'`
+
+Comprobar que el entorno esté activo:
+
+```bash
+source .venv/bin/activate
+```
+
+Después:
+
+```bash
+pip install pyspark==4.2.0
+```
+
+Comprobar:
+
+```bash
+python -c "import pyspark; print(pyspark.__version__)"
+```
+
+---
+
+## Error: `No module named 'flask'`
+
+Ejecutar:
+
+```bash
+pip install flask
+```
+
+---
+
+## Error: `java: command not found`
+
+Spark necesita Java.
+
+Comprobar:
+
+```bash
+java -version
+```
+
+Si no existe, instalar y configurar una versión compatible con Spark.
+
+---
+
+## Spark procesa demasiados archivos
+
+Si aparece algo como:
+
+```text
+Listed 1500 file(s)
+```
+
+significa que existen demasiados archivos antiguos en:
+
+```text
+data/eventos/
+```
+
+Detener el productor y consumidor y limpiar:
+
+```bash
+rm -f data/eventos/*.json
+```
+
+También puede ser necesario reiniciar el checkpoint:
+
+```bash
+rm -rf checkpoint/consumidor
+```
+
+y el estado:
+
+```bash
+rm -f estado.json
+```
+
+Después iniciar nuevamente el consumidor y productor.
+
+---
+
+# 35. Detener el sistema
+
+Para detener cualquiera de los procesos:
+
+```text
+CTRL + C
+```
+
+Se debe hacer en cada terminal.
+
+---
+
+# 36. Preparación para entregar el proyecto
+
+Antes de compartir la carpeta con los compañeros:
+
+1. Detener productor.
+2. Detener consumidor.
+3. Detener Flask.
+4. Limpiar los eventos:
+
+```bash
+rm -f data/eventos/*.json
+```
+
+5. Limpiar el checkpoint:
+
+```bash
+rm -rf checkpoint/consumidor
+```
+
+6. Revisar que el código esté actualizado.
+7. Mantener `README.md`.
+8. Mantener `requirements.txt`.
+9. No compartir `.venv`.
+10. No compartir cientos de archivos JSON generados durante las pruebas.
+
+La estructura final debería ser:
+
+```text
+proyecto_tienda/
+│
+├── productor.py
+├── consumidor.py
+├── app.py
+├── requirements.txt
+├── README.md
+│
+├── templates/
+│   └── index.html
+│
+├── static/
+│   └── ...
+│
+└── data/
+    └── eventos/
+```
+
+---
+
+# 37. requirements.txt
+
+El archivo `requirements.txt` debe contener como mínimo:
+
+```text
+pyspark==4.2.0
+Flask
+```
+
+Para instalar todo:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+# 38. Resumen de comandos
+
+## Primera terminal
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+source .venv/bin/activate
+python consumidor.py
+```
+
+## Segunda terminal
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+source .venv/bin/activate
+python productor.py
+```
+
+## Tercera terminal
+
+```bash
+cd /mnt/c/Users/USUARIO/Downloads/proyecto_tienda/proyecto_tienda
+source .venv/bin/activate
+python app.py
+```
+
+## Navegador
+
+```text
+http://127.0.0.1:5000
+```
+
+---
+
+# 39. Flujo final para recordar
+
+```text
+                 PRODUCTOR
+                    │
+                    ▼
+              Eventos JSON
+                    │
+                    ▼
+          SPARK STRUCTURED
+              STREAMING
+                    │
+                    ▼
+                DataFrame
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+       CONSUMO          CAMBIO PRECIO
+          │                   │
+          └─────────┬─────────┘
+                    ▼
+             PROCESAMIENTO
+                    │
+                    ▼
+              INVENTARIO
+                    │
+                    ▼
+               PREDICCIÓN
+                    │
+                    ▼
+              estado.json
+                    │
+                    ▼
+                 FLASK
+                    │
+                    ▼
+              /api/estado
+                    │
+                    ▼
+                 HTML
+                    │
+                    ▼
+            VISUALIZACIÓN
+             EN TIEMPO REAL
+```
+
+# 40. Conclusión
+
+El proyecto demuestra un flujo completo de procesamiento de eventos:
+
+```text
+Generación
+    ↓
+Almacenamiento
+    ↓
+Streaming
+    ↓
+DataFrame
+    ↓
+Procesamiento
+    ↓
+Predicción
+    ↓
+API
+    ↓
+Visualización
+```
+
+La finalidad es demostrar cómo diferentes componentes pueden integrarse para procesar información de una tienda de manera continua y mostrar los resultados en una interfaz web.
